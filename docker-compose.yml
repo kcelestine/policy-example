@@ -1,0 +1,8 @@
+version: '3.4'
+
+services:
+  redis:
+    image: redis:latest
+    container_name: redis_state
+    ports:
+      - 6379:6379
