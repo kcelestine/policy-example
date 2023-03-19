@@ -7,3 +7,10 @@ from dataclasses_json import dataclass_json
 class QuizStartRequest:
     topic_id: str
     user_name: str
+
+
+@dataclass_json
+@dataclass
+class QuizJoinRequest:
+    quiz_code: int
+    user_name: str

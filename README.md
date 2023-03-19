@@ -33,3 +33,9 @@ curl -iX 'POST' 'http://localhost:8055/api/quiz-start' \
   -H "Content-Type: application/json" \
   -d '{"topic_id": "d729af45-5ed3-42d0-ac57-d4485b64b067", "user_name": "Alph"}'
 ```
+Test joining the quiz (quiz_code is taken from the previous command output):
+```shell
+curl -iX 'POST' 'http://localhost:8055/api/quiz-join' \
+  -H "Content-Type: application/json" \
+  -d '{"quiz_code": 91832, "user_name": "Bart"}'
+```

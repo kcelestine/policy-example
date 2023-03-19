@@ -1,5 +1,6 @@
 import enum
 from datetime import datetime
+from typing import List
 
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
@@ -26,5 +27,25 @@ class QuizState(QuizTopic):
     quiz_code: int
     status: QuizStatusCode
     expires: datetime
-    user_role: QuizUserRole
+
+
+@dataclass_json
+@dataclass
+class QuizPlayer:
     user_token: str
+    name: str
+    user_role: QuizUserRole
+
+
+@dataclass_json
+@dataclass
+class UserQuizState:
+    state: QuizState
+    user: QuizPlayer
+    all_user_names: List[str]
+
+
+@dataclass_json
+@dataclass
+class QuizPlayers:
+    players: List[QuizPlayer]
