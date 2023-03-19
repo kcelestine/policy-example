@@ -3,7 +3,7 @@ from typing import List, Dict, Any
 from fastapi import APIRouter
 
 from domain.quiz_manager import quiz_manager
-from domain.quiz_requests import QuizStartRequest, QuizJoinRequest
+from domain.quiz_requests import QuizStartRequest, QuizJoinRequest, QuizStatusRequest
 
 router = APIRouter()
 
@@ -21,3 +21,8 @@ async def start_quiz(request_data: QuizStartRequest) -> Dict[str, Any]:
 @router.post("/quiz-join")
 async def join_quiz(request_data: QuizJoinRequest) -> Dict[str, Any]:
     return quiz_manager.join_quiz(request_data).to_dict()
+
+
+@router.post("/quiz-check-status")
+async def check_status(request_data: QuizStatusRequest) -> Dict[str, Any]:
+    return quiz_manager.get_quiz_status(request_data).to_dict()

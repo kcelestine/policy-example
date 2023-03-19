@@ -3,12 +3,12 @@ import os
 import random
 import re
 import uuid
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import redis
 
 from domain.quiz_data import QuizData
-from domain.quiz_requests import QuizStartRequest, QuizJoinRequest
+from domain.quiz_requests import QuizStartRequest, QuizJoinRequest, QuizStatusRequest
 from domain.quiz_state import QuizState, QuizStatusCode, QuizUserRole, QuizPlayers, QuizPlayer, UserQuizState
 from domain.quiz_topic import QuizTopic
 from settings import settings
@@ -71,18 +71,8 @@ class QuizManager:
     def join_quiz(self, request_data: QuizJoinRequest) -> UserQuizState:
         if not request_data.user_name:
             raise Exception("User name cannot be empty")
-
-        json_data = self.redis_cli.get(
-            f"quiz_{request_data.quiz_code}"
-        )
-        if not json_data:
-            raise Exception(f"Quiz #{request_data.quiz_code} not found")
-        q_state: QuizState = QuizState.from_json(json_data)
-
-        json_data = self.redis_cli.get(
-            f"quiz_players_{request_data.quiz_code}"
-        )
-        quiz_players: QuizPlayers = QuizPlayers.from_json(json_data)
+        q_state, quiz_players = self._read_quiz_state(
+            request_data.quiz_code)
         if request_data.user_name in {u.name for u in quiz_players.players}:
             raise Exception(f"User name '{request_data.user_name}' is already occupied")
         quiz_players.players.append(
@@ -103,6 +93,32 @@ class QuizManager:
             all_user_names=[p.name for p in quiz_players.players]
         )
         return user_quiz_state
+
+    def get_quiz_status(self, request_data: QuizStatusRequest) -> UserQuizState:
+        q_state, quiz_players = self._read_quiz_state(
+            request_data.quiz_code)
+        current_users = [u for u in quiz_players.players if u.user_token == request_data.user_token]
+        if not current_users:
+            raise Exception(f"User token not found among the quiz users")
+        user_quiz_state = UserQuizState(
+            state=q_state,
+            user=current_users[0],
+            all_user_names=[p.name for p in quiz_players.players]
+        )
+        return user_quiz_state
+
+    def _read_quiz_state(self, quiz_code: int) -> Tuple[QuizState, QuizPlayers]:
+        json_data = self.redis_cli.get(
+            f"quiz_{quiz_code}"
+        )
+        if not json_data:
+            raise Exception(f"Quiz #{quiz_code} not found")
+        q_state: QuizState = QuizState.from_json(json_data)
+        json_data = self.redis_cli.get(
+            f"quiz_players_{quiz_code}"
+        )
+        quiz_players: QuizPlayers = QuizPlayers.from_json(json_data)
+        return q_state, quiz_players
 
     def _read_quizes(self) -> None:
         quiz_path = settings.quiz_path

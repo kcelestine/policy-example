@@ -37,5 +37,12 @@ Test joining the quiz (quiz_code is taken from the previous command output):
 ```shell
 curl -iX 'POST' 'http://localhost:8055/api/quiz-join' \
   -H "Content-Type: application/json" \
-  -d '{"quiz_code": 91832, "user_name": "Bart"}'
+  -d '{"quiz_code": 68571, "user_name": "Bart"}'
+```
+Test getting the quiz status:
+- both quiz_code and user_token are taken either from /quiz-start or /quiz-join response.
+```shell
+curl -iX 'POST' 'http://localhost:8055/api/quiz-check-status' \
+  -H "Content-Type: application/json" \
+  -d '{"quiz_code": 68571, "user_token": "07d76bbd-51f6-4b7f-9d7a-59a6287c0a36"}'
 ```
