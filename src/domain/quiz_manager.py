@@ -3,12 +3,12 @@ import os
 import random
 import re
 import uuid
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 import redis
 
 from domain.quiz_data import QuizData
-from domain.quiz_requests import QuizStartRequest, QuizJoinRequest, QuizStatusRequest
+from domain.quiz_requests import QuizStartRequest, QuizJoinRequest, QuizStatusRequest, ScheduleQuizRequest
 from domain.quiz_state import QuizState, QuizStatusCode, QuizUserRole, QuizPlayers, QuizPlayer, UserQuizState
 from domain.quiz_topic import QuizTopic
 from settings import settings
@@ -16,6 +16,7 @@ from settings import settings
 
 class QuizManager:
     PENDING_QUIZ_EXPIRATION_SECONDS = 10 * 60
+    STARTED_QUIZ_EXPIRATION_SECONDS = 60 * 60
 
     def __init__(self):
         self.quizes: List[QuizData] = []
@@ -99,7 +100,31 @@ class QuizManager:
             request_data.quiz_code)
         current_users = [u for u in quiz_players.players if u.user_token == request_data.user_token]
         if not current_users:
+            raise Exception("User token not found among the quiz users")
+        user_quiz_state = UserQuizState(
+            state=q_state,
+            user=current_users[0],
+            all_user_names=[p.name for p in quiz_players.players]
+        )
+        return user_quiz_state
+
+    def schedule_quiz(self, request_data: ScheduleQuizRequest) -> UserQuizState:
+        q_state, quiz_players = self._read_quiz_state(
+            request_data.quiz_code)
+        current_users = [u for u in quiz_players.players if u.user_token == request_data.user_token]
+        if not current_users:
             raise Exception(f"User token not found among the quiz users")
+        if current_users[0].user_role != QuizUserRole.COMMANDER:
+            raise Exception("Current user is not a quiz commander")
+        # update the state
+        q_state.status = QuizStatusCode.SCHEDULED
+        q_state.starts_at = datetime.datetime.utcnow() + datetime.timedelta(
+            seconds=request_data.delay_seconds)
+        self.redis_cli.set(
+            f"quiz_{q_state.quiz_code}",
+            q_state.to_json(),
+            ex=self.STARTED_QUIZ_EXPIRATION_SECONDS + request_data.delay_seconds
+        )
         user_quiz_state = UserQuizState(
             state=q_state,
             user=current_users[0],
@@ -126,16 +151,22 @@ class QuizManager:
         for dir_name, dir_path in [
             (o, os.path.join(quiz_path, o)) for o in os.listdir(quiz_path)
                 if os.path.isdir(os.path.join(quiz_path, o))]:
-            if not re.match(r'^q\d+$', dir_name):
+            if not re.match(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', dir_name):
                 continue
             # read "quiz_data.json"
-            self._read_quiz(dir_path)
+            self.quizes.append(self._read_quiz_from_path(dir_path, dir_name))
 
-    def _read_quiz(self, quiz_path: str) -> None:
+    def _read_quiz_by_id(self, quiz_id: str) -> QuizData:
+        quiz_path = os.path.join(settings.quiz_path, quiz_id)
+        return self._read_quiz_from_path(quiz_path, quiz_id)
+
+    def _read_quiz_from_path(self, quiz_path: str, quiz_id: str) -> QuizData:
         file_path = os.path.join(quiz_path, "quiz_data.json")
         with open(file_path, "r") as file:
             json_data = file.read()
-        self.quizes.append(QuizData.from_json(json_data))
+        quiz: QuizData = QuizData.from_json(json_data, infer_missing=True)
+        quiz.id = quiz_id
+        return quiz
 
 
 quiz_manager = QuizManager()

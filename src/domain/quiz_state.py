@@ -1,6 +1,6 @@
 import enum
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
@@ -27,6 +27,8 @@ class QuizState(QuizTopic):
     quiz_code: int
     status: QuizStatusCode
     expires: datetime
+    starts_at: Optional[datetime] = None
+    question_seconds: int = 10
 
 
 @dataclass_json

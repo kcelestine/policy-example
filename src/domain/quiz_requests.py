@@ -21,3 +21,11 @@ class QuizJoinRequest:
 class QuizStatusRequest:
     quiz_code: int
     user_token: str
+
+
+@dataclass_json
+@dataclass
+class ScheduleQuizRequest:
+    quiz_code: int
+    user_token: str
+    delay_seconds: int
