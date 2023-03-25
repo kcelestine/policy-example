@@ -7,6 +7,7 @@ from dataclasses_json import dataclass_json
 class QuizStartRequest:
     topic_id: str
     user_name: str
+    question_seconds: int = 20
 
 
 @dataclass_json

@@ -1,10 +1,11 @@
 import enum
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
 
+from domain.quiz_data import QuizQuestion
 from domain.quiz_topic import QuizTopic
 
 
@@ -29,6 +30,8 @@ class QuizState(QuizTopic):
     expires: datetime
     starts_at: Optional[datetime] = None
     question_seconds: int = 10
+    cur_question: Optional[QuizQuestion] = None
+    cur_question_index: Tuple[int, int] = -1, 0
 
 
 @dataclass_json

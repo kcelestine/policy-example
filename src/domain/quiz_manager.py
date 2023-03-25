@@ -1,17 +1,17 @@
+import copy
 import datetime
-import os
+import math
 import random
-import re
 import uuid
-from typing import List, Tuple
-
-import redis
+from typing import List
 
 from domain.quiz_data import QuizData
 from domain.quiz_requests import QuizStartRequest, QuizJoinRequest, QuizStatusRequest, ScheduleQuizRequest
 from domain.quiz_state import QuizState, QuizStatusCode, QuizUserRole, QuizPlayers, QuizPlayer, UserQuizState
 from domain.quiz_topic import QuizTopic
-from settings import settings
+from domain.repository.quiz_metadata_repository import QuizMetadataRepository
+from domain.repository.quiz_state_repository import QuizStateRepository
+from domain.time_utils import get_utc_now_time
 
 
 class QuizManager:
@@ -19,9 +19,8 @@ class QuizManager:
     STARTED_QUIZ_EXPIRATION_SECONDS = 60 * 60
 
     def __init__(self):
-        self.quizes: List[QuizData] = []
-        self._read_quizes()
-        self.redis_cli = redis.Redis(host=settings.redis_host, port=settings.redis_port)
+        self.quizes: List[QuizData] = QuizMetadataRepository().read_quizes()
+        self._state_repo = QuizStateRepository()
 
     def get_quiz_topics(self) -> List[QuizTopic]:
         return [
@@ -29,7 +28,7 @@ class QuizManager:
         ]
 
     def start_quiz(self, request_data: QuizStartRequest) -> UserQuizState:
-        expires = datetime.datetime.utcnow() + datetime.timedelta(
+        expires = get_utc_now_time() + datetime.timedelta(
             seconds=self.PENDING_QUIZ_EXPIRATION_SECONDS)
         quizes = [q for q in self.quizes if q.id == request_data.topic_id]
         if not quizes:
@@ -41,13 +40,10 @@ class QuizManager:
             name=quiz.name,
             quiz_code=random.randint(0, 100000),
             status=QuizStatusCode.PENDING,
-            expires=expires
+            expires=expires,
+            question_seconds=request_data.question_seconds
         )
-        self.redis_cli.set(
-            f"quiz_{q_state.quiz_code}",
-            q_state.to_json(),
-            ex=self.PENDING_QUIZ_EXPIRATION_SECONDS
-        )
+        self._state_repo.set_state(q_state, self.PENDING_QUIZ_EXPIRATION_SECONDS)
         quiz_players = QuizPlayers(
             players=[
                 QuizPlayer(
@@ -57,11 +53,8 @@ class QuizManager:
                 )
             ]
         )
-        self.redis_cli.set(
-            f"quiz_players_{q_state.quiz_code}",
-            quiz_players.to_json(),
-            ex=self.PENDING_QUIZ_EXPIRATION_SECONDS
-        )
+        self._state_repo.set_quiz_players(
+            q_state.quiz_code, quiz_players, self.PENDING_QUIZ_EXPIRATION_SECONDS)
         user_quiz_state = UserQuizState(
             state=q_state,
             user=quiz_players.players[0],
@@ -72,7 +65,7 @@ class QuizManager:
     def join_quiz(self, request_data: QuizJoinRequest) -> UserQuizState:
         if not request_data.user_name:
             raise Exception("User name cannot be empty")
-        q_state, quiz_players = self._read_quiz_state(
+        q_state, quiz_players = self._state_repo.read_quiz_state(
             request_data.quiz_code)
         if request_data.user_name in {u.name for u in quiz_players.players}:
             raise Exception(f"User name '{request_data.user_name}' is already occupied")
@@ -83,11 +76,8 @@ class QuizManager:
                 user_role=QuizUserRole.PLAYER
             )
         )
-        self.redis_cli.set(
-            f"quiz_players_{q_state.quiz_code}",
-            quiz_players.to_json(),
-            ex=self.PENDING_QUIZ_EXPIRATION_SECONDS
-        )
+        self._state_repo.set_quiz_players(
+            q_state.quiz_code, quiz_players, self.PENDING_QUIZ_EXPIRATION_SECONDS)
         user_quiz_state = UserQuizState(
             state=q_state,
             user=quiz_players.players[-1],
@@ -96,7 +86,7 @@ class QuizManager:
         return user_quiz_state
 
     def get_quiz_status(self, request_data: QuizStatusRequest) -> UserQuizState:
-        q_state, quiz_players = self._read_quiz_state(
+        q_state, quiz_players = self._state_repo.read_quiz_state(
             request_data.quiz_code)
         current_users = [u for u in quiz_players.players if u.user_token == request_data.user_token]
         if not current_users:
@@ -106,10 +96,30 @@ class QuizManager:
             user=current_users[0],
             all_user_names=[p.name for p in quiz_players.players]
         )
+        # if the quiz is started - check and update the current question
+        # if we ran out of questions - stop the quiz
+        if q_state.status == QuizStatusCode.STARTED:
+            quiz_data = [q for q in self.quizes if q.id == q_state.id][0]
+            seconds_since_started = (get_utc_now_time() - q_state.starts_at).total_seconds()
+            question_index = math.floor(seconds_since_started / q_state.question_seconds)
+            if question_index >= len(quiz_data.questions):
+                self._finish_quiz(q_state)
+            else:
+                if q_state.cur_question_index[0] != question_index:
+                    q_state.cur_question_index = question_index, len(quiz_data.questions)
+                    q_state.cur_question = copy.deepcopy(quiz_data.questions[question_index])
+                    q_state.cur_question.correct_answers = []
+                    self._state_repo.set_state(q_state, self.STARTED_QUIZ_EXPIRATION_SECONDS)
+
         return user_quiz_state
 
+    def _finish_quiz(self, q_state: QuizState) -> None:
+        q_state.status = QuizStatusCode.FINISHED
+        # TODO: rank the quiz's users based on their answers
+        self._state_repo.set_state(q_state, self.STARTED_QUIZ_EXPIRATION_SECONDS)
+
     def schedule_quiz(self, request_data: ScheduleQuizRequest) -> UserQuizState:
-        q_state, quiz_players = self._read_quiz_state(
+        q_state, quiz_players = self._state_repo.read_quiz_state(
             request_data.quiz_code)
         current_users = [u for u in quiz_players.players if u.user_token == request_data.user_token]
         if not current_users:
@@ -118,55 +128,16 @@ class QuizManager:
             raise Exception("Current user is not a quiz commander")
         # update the state
         q_state.status = QuizStatusCode.SCHEDULED
-        q_state.starts_at = datetime.datetime.utcnow() + datetime.timedelta(
+        q_state.starts_at = get_utc_now_time() + datetime.timedelta(
             seconds=request_data.delay_seconds)
-        self.redis_cli.set(
-            f"quiz_{q_state.quiz_code}",
-            q_state.to_json(),
-            ex=self.STARTED_QUIZ_EXPIRATION_SECONDS + request_data.delay_seconds
-        )
+
+        self._state_repo.set_state(q_state, self.STARTED_QUIZ_EXPIRATION_SECONDS + request_data.delay_seconds)
         user_quiz_state = UserQuizState(
             state=q_state,
             user=current_users[0],
             all_user_names=[p.name for p in quiz_players.players]
         )
         return user_quiz_state
-
-    def _read_quiz_state(self, quiz_code: int) -> Tuple[QuizState, QuizPlayers]:
-        json_data = self.redis_cli.get(
-            f"quiz_{quiz_code}"
-        )
-        if not json_data:
-            raise Exception(f"Quiz #{quiz_code} not found")
-        q_state: QuizState = QuizState.from_json(json_data)
-        json_data = self.redis_cli.get(
-            f"quiz_players_{quiz_code}"
-        )
-        quiz_players: QuizPlayers = QuizPlayers.from_json(json_data)
-        return q_state, quiz_players
-
-    def _read_quizes(self) -> None:
-        quiz_path = settings.quiz_path
-        # list directories q01 ...
-        for dir_name, dir_path in [
-            (o, os.path.join(quiz_path, o)) for o in os.listdir(quiz_path)
-                if os.path.isdir(os.path.join(quiz_path, o))]:
-            if not re.match(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', dir_name):
-                continue
-            # read "quiz_data.json"
-            self.quizes.append(self._read_quiz_from_path(dir_path, dir_name))
-
-    def _read_quiz_by_id(self, quiz_id: str) -> QuizData:
-        quiz_path = os.path.join(settings.quiz_path, quiz_id)
-        return self._read_quiz_from_path(quiz_path, quiz_id)
-
-    def _read_quiz_from_path(self, quiz_path: str, quiz_id: str) -> QuizData:
-        file_path = os.path.join(quiz_path, "quiz_data.json")
-        with open(file_path, "r") as file:
-            json_data = file.read()
-        quiz: QuizData = QuizData.from_json(json_data, infer_missing=True)
-        quiz.id = quiz_id
-        return quiz
 
 
 quiz_manager = QuizManager()
