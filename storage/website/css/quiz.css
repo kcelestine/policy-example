@@ -41,3 +41,13 @@
 .topics-radio-group {
   display: block;
 }
+
+.round-container {
+  width: 100%;
+  overflow: hidden;
+}
+
+.round-column {
+  width: 50%;
+  float: left;
+}

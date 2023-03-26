@@ -2,6 +2,7 @@ from typing import List, Dict, Any
 
 import pytest
 from freezegun import freeze_time
+from httpx import Response
 
 from tests.api.api_test_client import TEST_BASE_URL, responses_client, HEADERS_JSON_CONTENT_TYPE, start_quiz
 
@@ -38,19 +39,19 @@ async def test_finish_quiz_and_get_results():
         await _give_answer(second_usr_token, quiz_code, 1, [0, 2])
     # wait until the quiz ends and then let the 1st player give his answer
     with freeze_time("2012-01-14 10:00:06"):
-        with pytest.raises(Exception):
-            # the exception is raised because the answer came too late
-            await _give_answer(commander_token, quiz_code, 1, [0, 2])
+        # the exception is raised because the answer came too late
+        result = await _give_answer(commander_token, quiz_code, 1, [0, 2])
+        assert result.status_code == 500
     # now let's check the quiz results
     results = await _get_quiz_results(quiz_code)
     assert results
 
 
 async def _give_answer(token: str, quiz_code: int,
-                       question_index: int, answer: List[int]) -> None:
+                       question_index: int, answer: List[int]) -> Response:
     data = {"quiz_code": quiz_code, "user_token": token,
             "question_index": question_index, "answer": answer}
-    await responses_client.post(
+    return await responses_client.post(
         url=URI_QUIZ_GIVE_ANSWER, headers=HEADERS_JSON_CONTENT_TYPE, json=data
     )
 

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charSet="utf-8"/>
+        <title>Quizz Round</title>
+        <link rel="stylesheet" href="css/quiz.css" />
+        <script type="text/javascript" src="js/utils.js"></script>
+        <script type="text/javascript" src="js/local_state.js"></script>
+        <script type="text/javascript" src="js/server.js"></script>
+        <script type="text/javascript" src="js/round_manager.js"></script>
+        <script type="text/javascript">
+            function onLoad() {
+                window.pageManager = new RoundPageManager();
+                window.pageManager.initialize();
+            }
+        </script>
+    </head>
+    <body onload="onLoad()">
+        <p>
+            <span>Your username is</span>
+            &nbsp;&nbsp;&nbsp;
+            <input type="text" id="user-name" disabled="disabled" />
+        </p>
+
+        <div class="round-container">
+          <div class="round-column">
+            <h2>Players</h2>
+            <div id="quiz-players">
+            </div>
+          </div>
+          <div class="round-column">
+            <h2>Round</h2>
+            <div id="quiz-round-status">
+            </div>
+          </div>
+        </div>
+
+    </body>
+</html>

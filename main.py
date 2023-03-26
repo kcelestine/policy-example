@@ -1,5 +1,6 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from api.api import api_router
 
@@ -15,6 +16,23 @@ app = FastAPI(
 )
 
 app.include_router(api_router, prefix="/api")
+
+
+async def catch_exceptions_middleware(request: Request, call_next):
+    try:
+        return await call_next(request)
+    except Exception as e:
+        # you probably want some kind of logging here
+        return JSONResponse(
+            status_code=500,
+            content={"detail": str(e)}
+        )
+
+
+# it's important to add the catch_exceptions_middleware before(!)
+# we add the CORSMiddleware - otherwise (say, if we add the middleware
+# through the @app.exception_handler decorator) the CORS headers won't be added
+app.middleware('http')(catch_exceptions_middleware)
 
 
 app.add_middleware(

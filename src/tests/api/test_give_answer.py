@@ -36,7 +36,7 @@ async def test_give_second_answer():
     # now we can't give answer to the previous question
     data = {"quiz_code": quiz_code, "user_token": token, "question_index": 0, "answer": [0, 2]}
     with freeze_time("2012-01-14 10:00:02.550"):
-        with pytest.raises(Exception):
-            await responses_client.post(
-                url=URI_QUIZ_GIVE_ANSWER, headers=HEADERS_JSON_CONTENT_TYPE, json=data
-            )
+        result = await responses_client.post(
+            url=URI_QUIZ_GIVE_ANSWER, headers=HEADERS_JSON_CONTENT_TYPE, json=data
+        )
+        assert result.status_code == 500
