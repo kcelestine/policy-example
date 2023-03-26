@@ -1,6 +1,5 @@
-import time
-
 import pytest
+from freezegun import freeze_time
 
 from tests.api.api_test_client import TEST_BASE_URL, responses_client, HEADERS_JSON_CONTENT_TYPE, start_quiz
 
@@ -25,6 +24,7 @@ async def test_quiz_check_status():
 
 
 @pytest.mark.asyncio
+@freeze_time("2012-01-14 10:00:00.000")
 async def test_quiz_current_question_is_set():
     quiz_code, token = await start_quiz(question_seconds=1)
     # schedule the quiz
@@ -34,11 +34,11 @@ async def test_quiz_current_question_is_set():
     )
 
     # wait 1+ seconds to check the current question is set to the question #1
-    time.sleep(1.2)
     data = {"quiz_code": quiz_code, "user_token": token}
-    res = await responses_client.post(
-        url=URI_QUIZ_CHECK_STATUS, headers=HEADERS_JSON_CONTENT_TYPE, json=data
-    )
+    with freeze_time("2012-01-14 10:00:01.550"):
+        res = await responses_client.post(
+            url=URI_QUIZ_CHECK_STATUS, headers=HEADERS_JSON_CONTENT_TYPE, json=data
+        )
     res_json = res.json()
     assert res_json
     # NB: tuple (0, 2) is deserialized as an array [0, 2]
@@ -46,11 +46,11 @@ async def test_quiz_current_question_is_set():
     assert res_json["state"]["cur_question"]["question_type"] == "SINGLE_CHOICE"
 
     # wait 1+ seconds to check the current question is set to the question #2
-    time.sleep(1)
     data = {"quiz_code": quiz_code, "user_token": token}
-    res = await responses_client.post(
-        url=URI_QUIZ_CHECK_STATUS, headers=HEADERS_JSON_CONTENT_TYPE, json=data
-    )
+    with freeze_time("2012-01-14 10:00:02.550"):
+        res = await responses_client.post(
+            url=URI_QUIZ_CHECK_STATUS, headers=HEADERS_JSON_CONTENT_TYPE, json=data
+        )
     res_json = res.json()
     assert res_json
     assert res_json["state"]["cur_question_index"] == [1, 2]

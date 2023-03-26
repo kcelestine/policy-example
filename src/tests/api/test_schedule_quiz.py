@@ -1,6 +1,7 @@
 import time
 
 import pytest
+from freezegun import freeze_time
 
 from tests.api.api_test_client import TEST_BASE_URL, \
     responses_client, HEADERS_JSON_CONTENT_TYPE, start_quiz
@@ -22,6 +23,7 @@ async def test_quiz_schedule():
 
 
 @pytest.mark.asyncio
+@freeze_time("2012-01-14 10:00:00.000")
 async def test_scheduled_quiz_started_automatically():
     quiz_code, user_token = await start_quiz()
 
@@ -35,8 +37,8 @@ async def test_scheduled_quiz_started_automatically():
     assert status == "SCHEDULED"
 
     # wait 1+ seconds and the quiz should be started
-    time.sleep(1.2)
-    status = await _get_quiz_state(quiz_code, user_token)
+    with freeze_time("2012-01-14 10:00:01.550"):
+        status = await _get_quiz_state(quiz_code, user_token)
     assert status == "STARTED"
 
 
