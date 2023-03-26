@@ -36,10 +36,18 @@ class QuizState(QuizTopic):
 
 @dataclass_json
 @dataclass
+class QuizPlayerAnswer:
+    answer: List[int]
+    answer_given: Optional[datetime] = None
+
+
+@dataclass_json
+@dataclass
 class QuizPlayer:
     user_token: str
     name: str
     user_role: QuizUserRole
+    answers: List[QuizPlayerAnswer]
 
 
 @dataclass_json
@@ -54,3 +62,21 @@ class UserQuizState:
 @dataclass
 class QuizPlayers:
     players: List[QuizPlayer]
+
+
+@dataclass_json
+@dataclass
+class QuizResultsPlayer:
+    name: str
+    correct_answers: int
+    total_answering_time: float
+    answers: List[QuizPlayerAnswer]
+
+
+@dataclass_json
+@dataclass
+class QuizResults:
+    quiz_id: str
+    quiz_name: str
+    started_at: datetime
+    players: List[QuizResultsPlayer]

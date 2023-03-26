@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+from typing import List
+
 from dataclasses_json import dataclass_json
 
 
@@ -30,3 +32,12 @@ class ScheduleQuizRequest:
     quiz_code: int
     user_token: str
     delay_seconds: int
+
+
+@dataclass_json
+@dataclass
+class StoreAnswerRequest:
+    quiz_code: int
+    user_token: str
+    question_index: int
+    answer: List[int]
