@@ -6,3 +6,9 @@ function getRadioGroupValue(selector) {
     });
     return selectedValue;
 }
+
+function encodeHTML(text) {
+    const dummyElement = document.createElement('div');
+    dummyElement.innerText = text;
+    return dummyElement.innerHTML;
+}

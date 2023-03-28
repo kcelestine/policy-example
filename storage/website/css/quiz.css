@@ -43,11 +43,30 @@
 }
 
 .round-container {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+}
+
+.round-column-players {
+  width: 200px;
+}
+
+.round-column-questions {
+  flex-grow: 1;
+}
+
+.round-header-container {
   width: 100%;
   overflow: hidden;
 }
 
-.round-column {
-  width: 50%;
+.round-header-column {
+  width: 33%;
   float: left;
+}
+
+div.players-container {
+  display: flex;
+  flex-direction: column;
 }

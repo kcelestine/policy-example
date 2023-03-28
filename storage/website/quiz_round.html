@@ -16,19 +16,27 @@
         </script>
     </head>
     <body onload="onLoad()">
-        <p>
-            <span>Your username is</span>
-            &nbsp;&nbsp;&nbsp;
-            <input type="text" id="user-name" disabled="disabled" />
-        </p>
+        <div class="round-header-container">
+              <div class="round-header-column">
+                  <span>Your username is</span>
+                  &nbsp;&nbsp;&nbsp;
+                  <input type="text" id="user-name" disabled="disabled" />
+              </div>
+              <div class="round-header-column">
+                  <span id="quiz-status-text">Quiz</span>
+              </div>
+              <div id="start-quiz-panel" class="round-header-column">
+                  <button id="btn-start-quiz">Start the quiz</button>
+              </div>
+        </div>
 
         <div class="round-container">
-          <div class="round-column">
+          <div class="round-column-players">
             <h2>Players</h2>
-            <div id="quiz-players">
+            <div id="quiz-players" class="players-container">
             </div>
           </div>
-          <div class="round-column">
+          <div class="round-column-questions">
             <h2>Round</h2>
             <div id="quiz-round-status">
             </div>
