@@ -1,3 +1,4 @@
+import math
 from typing import Tuple, Optional
 
 import redis
@@ -67,12 +68,19 @@ class QuizStateRepository:
     def _update_quiz_state(self, quiz_state: QuizState):
         tm = get_utc_now_time()
 
+        if quiz_state.status == QuizStatusCode.PENDING:
+            if quiz_state.expires > tm:
+                quiz_state.updates_in_seconds = math.ceil((quiz_state.expires - tm).total_seconds())
+
         if quiz_state.expires <= tm:
             quiz_state.status = QuizStatusCode.EXPIRED
             self.set_state(quiz_state, 0)
             return
 
-        if quiz_state.status == QuizStatusCode.SCHEDULED and quiz_state.starts_at <= tm:
-            quiz_state.status = QuizStatusCode.STARTED
-            self.set_state(quiz_state, 0)
+        if quiz_state.status == QuizStatusCode.SCHEDULED:
+            if quiz_state.starts_at > tm:
+                quiz_state.updates_in_seconds = math.ceil((quiz_state.starts_at - tm).total_seconds())
+            elif quiz_state.starts_at <= tm:
+                quiz_state.status = QuizStatusCode.STARTED
+                self.set_state(quiz_state, 0)
             return

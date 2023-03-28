@@ -3,6 +3,7 @@ class RoundPageManager {
         this.server = new Server();
         this.localState = new LocalStateManager();
         this.quizState = null;
+        this.quizTimer = new QuizTimer();
     }
 
     initialize() {
@@ -12,6 +13,10 @@ class RoundPageManager {
         document.getElementById('btn-start-quiz').addEventListener('click', (e) => {
             this.scheduleQuiz();
         });
+        // request current quiz status
+        this.server.checkQuizStatus(
+            this.quizState.state.quiz_code, this.quizState.user.user_token,
+            (data) => {this.updateAndRenderQuizData(data);});
     }
 
     scheduleQuiz() {
@@ -19,11 +24,11 @@ class RoundPageManager {
             this.quizState.state.quiz_code,
             this.quizState.user.user_token,
             10,
-            (data) => {this.onQuizScheduled(data);}
+            (data) => {this.updateAndRenderQuizData(data);}
         )
     }
 
-    onQuizScheduled(data) {
+    updateAndRenderQuizData(data) {
         // TODO: check the data is the correct state
         this.localState.storeQuizState(data);
         this.quizState = data;
@@ -31,6 +36,19 @@ class RoundPageManager {
     }
 
     renderQuizState() {
+        // set the timer
+        this.quizTimer.setTimer(this.quizState.state.updates_in_seconds);
+        if (this.quizState.state.updates_in_seconds >= 0) {
+            // schedule quiz status update
+            setTimeout(() => {
+                this.server.checkQuizStatus(
+                    this.quizState.state.quiz_code, this.quizState.user.user_token,
+                    (data) => {this.updateAndRenderQuizData(data);}
+                );
+            }, this.quizState.state.updates_in_seconds * 1000 + 10);
+        }
+
+        // update the user name
         this.localState.userName = this.quizState.user.name;
         let quizStatusText = `Quiz "${this.quizState.state.name}" (#` +
             `${this.quizState.state.quiz_code}) `;

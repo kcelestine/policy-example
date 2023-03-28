@@ -62,8 +62,9 @@
 }
 
 .round-header-column {
-  width: 33%;
+  width: 24%;
   float: left;
+  padding: 5px;
 }
 
 div.players-container {

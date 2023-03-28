@@ -70,6 +70,27 @@ class Server {
             });
     }
 
+    checkQuizStatus(quizCode, userToken, onCompleted) {
+        const url = this.baseUrl + 'quiz-check-status'
+        fetch(url, {
+                method: 'POST',
+                body: JSON.stringify(
+                    {"quiz_code": quizCode, "user_token": userToken}
+                ),
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(this.checkStatus)
+            .then(data => {
+                onCompleted(data);
+            })
+            .catch(error => {
+                this.processErrorInResponse(error);
+            });
+    }
+
     joinQuiz(quizCode, userName, onCompleted) {
         const url = this.baseUrl + 'quiz-join';
         fetch(url, {

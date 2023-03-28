@@ -43,7 +43,8 @@ class QuizManager:
             quiz_code=random.randint(0, 100000),
             status=QuizStatusCode.PENDING,
             expires=expires,
-            question_seconds=request_data.question_seconds
+            question_seconds=request_data.question_seconds,
+            updates_in_seconds=self.PENDING_QUIZ_EXPIRATION_SECONDS
         )
         self._state_repo.set_state(q_state, self.PENDING_QUIZ_EXPIRATION_SECONDS)
         quiz_players = QuizPlayers(
@@ -155,6 +156,7 @@ class QuizManager:
         q_state.status = QuizStatusCode.SCHEDULED
         q_state.starts_at = get_utc_now_time() + datetime.timedelta(
             seconds=request_data.delay_seconds)
+        q_state.updates_in_seconds = request_data.delay_seconds
 
         self._state_repo.set_state(q_state, self.STARTED_QUIZ_EXPIRATION_SECONDS + request_data.delay_seconds)
         user_quiz_state = UserQuizState(
@@ -178,6 +180,9 @@ class QuizManager:
             quiz_data = [q for q in self.quizes if q.id == q_state.id][0]
             seconds_since_started = (get_utc_now_time() - q_state.starts_at).total_seconds()
             question_index = math.floor(seconds_since_started / q_state.question_seconds)
+            # determine interval until next question
+            q_state.updates_in_seconds = q_state.question_seconds - \
+                                         math.floor(seconds_since_started % q_state.question_seconds)
             if question_index >= len(quiz_data.questions):
                 self._finish_quiz(q_state)
             else:
@@ -196,6 +201,7 @@ class QuizManager:
         self._state_repo.set_state(q_state, self.STARTED_QUIZ_EXPIRATION_SECONDS)
         players = self._state_repo.read_quiz_players(q_state.quiz_code)
         quiz_data = [q for q in self.quizes if q.id == q_state.id][0]
+        q_state.updates_in_seconds = self.STARTED_QUIZ_EXPIRATION_SECONDS
 
         # total number of correct answers / total time spent answering
         players_scores: List[Tuple[int, float]] = [(0, 0)] * len(players.players)

@@ -32,6 +32,7 @@ class QuizState(QuizTopic):
     question_seconds: int = 10
     cur_question: Optional[QuizQuestion] = None
     cur_question_index: Tuple[int, int] = -1, 0
+    updates_in_seconds: int = -1
 
 
 @dataclass_json
