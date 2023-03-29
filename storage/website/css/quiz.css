@@ -71,3 +71,15 @@ div.players-container {
   display: flex;
   flex-direction: column;
 }
+
+div.round-question div {
+  padding: 8px;
+}
+
+#quiz-results-title {
+  padding: 12px;
+}
+
+#quiz-results-players {
+  padding: 12px;
+}

@@ -26,7 +26,10 @@ async def join_quiz(request_data: QuizJoinRequest) -> Dict[str, Any]:
 
 @router.post("/quiz-check-status")
 async def check_status(request_data: QuizStatusRequest) -> Dict[str, Any]:
-    return quiz_manager.get_quiz_status(request_data).to_dict()
+    try:
+        return quiz_manager.get_quiz_status(request_data).to_dict()
+    except Exception as e:
+        print(e)
 
 
 @router.post("/quiz-schedule")
@@ -35,7 +38,7 @@ async def schedule_quiz(request_data: ScheduleQuizRequest) -> Dict[str, Any]:
 
 
 @router.post("/quiz-answer")
-async def schedule_quiz(request_data: StoreAnswerRequest) -> Dict[str, Any]:
+async def answer_quiz(request_data: StoreAnswerRequest) -> Dict[str, Any]:
     return quiz_manager.store_answer(request_data).to_dict()
 
 

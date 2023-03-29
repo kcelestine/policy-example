@@ -30,11 +30,12 @@ class Server {
             });
     }
 
-    startQuiz(quizId, userName, onCompleted) {
+    startQuiz(quizId, userName, intervalSeconds, onCompleted) {
         const url = this.baseUrl + 'quiz-start'
         fetch(url, {
                 method: 'POST',
-                body: JSON.stringify({"topic_id": quizId, "user_name": userName}),
+                body: JSON.stringify(
+                    {"topic_id": quizId, "user_name": userName, "question_seconds": intervalSeconds}),
                 headers: {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json'
@@ -101,6 +102,40 @@ class Server {
                     'Content-Type': 'application/json'
                 }
             })
+            .then(this.checkStatus)
+            .then(data => {
+                onCompleted(data);
+            })
+            .catch(error => {
+                this.processErrorInResponse(error);
+            });
+    }
+
+    postAnswer(quizCode, userToken, questionIndex, answer, onCompleted) {
+        const url = this.baseUrl + 'quiz-answer'
+        fetch(url, {
+                method: 'POST',
+                body: JSON.stringify(
+                    {"quiz_code": quizCode, "user_token": userToken,
+                     "question_index": questionIndex, "answer": answer}
+                ),
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(this.checkStatus)
+            .then(data => {
+                onCompleted(data);
+            })
+            .catch(error => {
+                this.processErrorInResponse(error);
+            });
+    }
+
+    getQuizResults(quizCode, onCompleted) {
+        const url = this.baseUrl + `quiz-results/${quizCode}`
+        fetch(url)
             .then(this.checkStatus)
             .then(data => {
                 onCompleted(data);

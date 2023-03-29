@@ -58,7 +58,7 @@ class QuizManager:
             ]
         )
         self._state_repo.set_quiz_players(
-            q_state.quiz_code, quiz_players, self.PENDING_QUIZ_EXPIRATION_SECONDS)
+            q_state.quiz_code, quiz_players, self.STARTED_QUIZ_EXPIRATION_SECONDS)
         user_quiz_state = UserQuizState(
             state=q_state,
             user=quiz_players.players[0],
@@ -126,12 +126,17 @@ class QuizManager:
             raise Exception(f"Current question index is {q_state.cur_question_index}, "
                             f"but the answer was given on the question {request_data.question_index}")
 
-        # pad answers from left if some answers were skipped
-        if len(current_users[0].answers) < request_data.question_index:
-            delta = request_data.question_index - len(current_users[0].answers)
-            current_users[0].answers += [QuizPlayerAnswer(answer=[])] * delta
-        current_users[0].answers.append(QuizPlayerAnswer(
-            answer=request_data.answer, answer_given=answer_time))
+        # initiate answers with empty values
+        quiz_data = [q for q in self.quizes if q.id == q_state.id][0]
+        if not current_users[0].answers:
+            current_users[0].answers = [QuizPlayerAnswer(
+                answer=[], answer_given_seconds=q_state.question_seconds)] * len(quiz_data.questions)
+
+        # check how much time passed since question was revealed
+        seconds_since_started = (answer_time - q_state.starts_at).total_seconds()
+        time_passed = round(seconds_since_started % q_state.question_seconds)
+        current_users[0].answers[request_data.question_index] = QuizPlayerAnswer(
+            answer=request_data.answer, answer_given_seconds=time_passed)
 
         # store the updated answers
         self._state_repo.set_quiz_players(
@@ -198,10 +203,10 @@ class QuizManager:
         q_state.status = QuizStatusCode.FINISHED
 
         # rank the quiz's users based on their answers
+        q_state.updates_in_seconds = self.STARTED_QUIZ_EXPIRATION_SECONDS
         self._state_repo.set_state(q_state, self.STARTED_QUIZ_EXPIRATION_SECONDS)
         players = self._state_repo.read_quiz_players(q_state.quiz_code)
         quiz_data = [q for q in self.quizes if q.id == q_state.id][0]
-        q_state.updates_in_seconds = self.STARTED_QUIZ_EXPIRATION_SECONDS
 
         # total number of correct answers / total time spent answering
         players_scores: List[Tuple[int, float]] = [(0, 0)] * len(players.players)
@@ -215,8 +220,7 @@ class QuizManager:
                 player_answers = sorted(player.answers[i].answer)
                 if sorted_answers == player_answers:
                     score = score[0] + 1, score[1]
-                seconds_since_start = (player.answers[i].answer_given - q_state.starts_at).total_seconds()
-                score = score[0], score[1] + seconds_since_start
+                score = score[0], score[1] + player.answers[i].answer_given_seconds
                 players_scores[player_index] = score
 
         player_score_index = [(i, score) for i, score in enumerate(players_scores)]

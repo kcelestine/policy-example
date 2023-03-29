@@ -20,23 +20,8 @@ class IndexPageManager {
     }
 
     renderTopics(topics) {
-        const radioGroup = document.createElement('div');
-        topics.forEach(topic => {
-            const label = document.createElement('label');
-            label.classList.add('topics-radio-group');
-            const radio = document.createElement('input');
-
-            radio.type = 'radio';
-            radio.name = 'topic';
-            radio.value = topic.id;
-
-            label.textContent = topic.name;
-            label.appendChild(radio);
-
-            radioGroup.appendChild(label);
-        });
         const parentDiv = document.getElementById('quiz-topics');
-        parentDiv.appendChild(radioGroup);
+        createRadioGroup(topics, (t) => t.name, (t) => t.id, parentDiv, 'topics-radio-group', 'topic');
     }
 
     setupTabs() {
@@ -79,13 +64,15 @@ class IndexPageManager {
             alert('Select your user name before starting the quiz');
             return;
         }
+        const intervalSeconds = document.getElementById('quiz-interval-seconds').value;
         this.localState.userName = userName;
         this.localState.storeQuizState(null);
-        this.server.startQuiz(selectedValue, userName, (quizState) => {
-            this.localState.storeQuizState(quizState);
-            // navigate to the quiz page
-            window.location = 'quiz_round.html';
-        });
+        this.server.startQuiz(selectedValue, userName, parseInt(intervalSeconds),
+            (quizState) => {
+                this.localState.storeQuizState(quizState);
+                // navigate to the quiz page
+                window.location = 'quiz_round.html';
+            });
     }
 
     joinQuiz() {

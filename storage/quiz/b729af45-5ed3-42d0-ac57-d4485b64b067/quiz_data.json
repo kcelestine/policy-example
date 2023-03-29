@@ -2,9 +2,9 @@
   "name": "Numbers-II",
   "questions": [
     {
-      "image": "",
-      "text": "(2) What Roman numeral corresponds to 1?",
-      "answers": ["1", "I", "V"],
+      "image": "quiz_rn_01.png",
+      "text": "(2) What Roman number is this?",
+      "answers": ["20158", "2608", "11518"],
       "correct_answers": [1],
       "question_type": "SINGLE_CHOICE"
     },

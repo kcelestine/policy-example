@@ -39,7 +39,7 @@ class QuizState(QuizTopic):
 @dataclass
 class QuizPlayerAnswer:
     answer: List[int]
-    answer_given: Optional[datetime] = None
+    answer_given_seconds: int = -1
 
 
 @dataclass_json

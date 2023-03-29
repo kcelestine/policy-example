@@ -13,6 +13,9 @@ class RoundPageManager {
         document.getElementById('btn-start-quiz').addEventListener('click', (e) => {
             this.scheduleQuiz();
         });
+        document.getElementById('btn-post-answer').addEventListener('click', (e) => {
+            this.postAnswer();
+        });
         // request current quiz status
         this.server.checkQuizStatus(
             this.quizState.state.quiz_code, this.quizState.user.user_token,
@@ -23,16 +26,33 @@ class RoundPageManager {
         this.server.scheduleQuiz(
             this.quizState.state.quiz_code,
             this.quizState.user.user_token,
-            10,
+            5,
             (data) => {this.updateAndRenderQuizData(data);}
         )
     }
 
     updateAndRenderQuizData(data) {
-        // TODO: check the data is the correct state
+        if (!data || !data.state) {
+            console.error('Received incorrect data (state) from the server');
+            console.log(data);
+            return;
+        }
         this.localState.storeQuizState(data);
         this.quizState = data;
         this.renderQuizState();
+    }
+
+    postAnswer() {
+        let answer = getRadioGroupValue('input[name="answer"]');
+        if (answer === undefined)
+            answer = getSelectedCheckboxes(document.getElementById('round-question-questions-container'));
+        else
+            answer = [answer];
+        this.server.postAnswer(this.quizState.state.quiz_code,
+            this.quizState.user.user_token, this.quizState.state.cur_question_index[0],
+            answer, (data) => {
+                this.updateAndRenderQuizData(data);
+            });
     }
 
     renderQuizState() {
@@ -63,7 +83,7 @@ class RoundPageManager {
             }
         }
         else if (this.quizState.state.status == 'SCHEDULED')
-            quizStatusText += `will start at ${this.quizState.state.starts_at}`;
+            quizStatusText += `will start soon`;
         else if (this.quizState.state.status == 'STARTED')
             quizStatusText += 'is started';
         else if (this.quizState.state.status == 'FINISHED')
@@ -72,16 +92,96 @@ class RoundPageManager {
             quizStatusText += 'is expired';
         document.getElementById("quiz-status-text").innerText = quizStatusText;
 
-        document.getElementById("quiz-round-status").innerText = JSON.stringify(this.quizState);
-
         this.renderPlayers();
+        this.renderQuizQuestion();
+        this.obtainAndRenderQuizResults();
+    }
+
+    obtainAndRenderQuizResults() {
+        if (this.quizState.state.status != 'FINISHED')
+            return;
+        this.server.getQuizResults(this.quizState.state.quiz_code, (data) => {
+            this.renderQuizResults(data);
+        });
+    }
+
+    renderQuizResults(data) {
+        const container = document.getElementById('quiz-results');
+        // container.innerText = JSON.stringify(data);
+        container.style.display = 'block';
+        /*
+        {"quiz_results":{"quiz_id":"b729af45-5ed3-42d0-ac57-d4485b64b067","quiz_name":"Numbers-II",
+        "started_at":"2023-03-28T22:00:50.903869+02:00","players":[{"name":"Burt","correct_answers":2,"total_answering_time":14.752748,
+            "answers":[{"answer":[1],"answer_given":"2023-03-28T22:00:52.482516+02:00"},
+                       {"answer":[1,2],"answer_given":"2023-03-28T22:01:04.077970+02:00"}]}]},
+            "quiz_data":{"id":"b729af45-5ed3-42d0-ac57-d4485b64b067","name":"Numbers-II","questions":
+              [{"image":"quiz_rn_01.png","text":"(2) What Roman number is this?","answers":["20158","2608","11518"],"correct_answers":[1],
+                "question_type":"SINGLE_CHOICE"},
+              {"image":"","text":"(2) What Roman numeral corresponds to 2?","answers":["2","II","ii"],"correct_answers":[1,2],"question_type":"MULTI_CHOICE"}
+        ]}}
+        */
+        document.getElementById('quiz-results-title').innerText = `Quiz #${this.quizState.state.quiz_code} ("` +
+            `${data.quiz_results.quiz_name}) is finished`;
+        this.renderPlayersResults(data);
+        this.renderPlayerAnswers(data);
+    }
+
+    renderPlayersResults(data) {
+        const quizResults = data.quiz_results;
+        const container = document.getElementById('quiz-results-players');
+        deleteAllChildren(container);
+        quizResults.players.forEach((player, index) => {
+            const playerContainer = document.createElement('div');
+            const text = `[${index + 1}] ${player.name} [${player.correct_answers} ` +
+                `/ ${data.quiz_data.questions.length}]`;
+            let markup = encodeHTML(text);
+            if (player.name == this.quizState.user.name)
+                markup = `<b>${markup}</b>`;
+            playerContainer.innerHTML = markup;
+            container.appendChild(playerContainer);
+        });
+    }
+
+    renderPlayerAnswers(data) {
+        const container = document.getElementById('quiz-results-answers');
+        deleteAllChildren(container);
+
+        const player = data.quiz_results.players.find((p) => p.name == this.quizState.user.name);
+        const answers = player.answers;
+        answers.forEach((playerAnswer, index) => {
+            const childContainer = document.createElement('div');
+            const questionContainer = document.createElement('div');
+            childContainer.appendChild(questionContainer);
+
+            const question = data.quiz_data.questions[index];
+            const text = `[${index + 1}] ${question.text}`;
+            questionContainer.innerHTML = encodeHTML(text);
+
+            const answersContainer = document.createElement('div');
+            childContainer.appendChild(answersContainer);
+
+            let answerMarkup = '';
+            question.answers.forEach((answerText, answerIndex) => {
+                answerText = encodeHTML(answerText);
+                const isCorrectAnsw = question.correct_answers.includes(answerIndex);
+                const isPlayerChoice = playerAnswer.answer.includes(answerIndex);
+                if (isCorrectAnsw)
+                    answerText = `[correct] ${answerText}`;
+                else
+                    answerText = `[wrong] ${answerText}`;
+                if (isPlayerChoice)
+                    answerText += ' [chosen]';
+                answerMarkup += answerText + '<br/>';
+            });
+            answersContainer.innerHTML = answerMarkup + '<hr/>';
+
+            container.appendChild(childContainer);
+        });
     }
 
     renderPlayers() {
         const parentDiv = document.getElementById('quiz-players');
-        while (parentDiv.firstChild) {
-            parentDiv.removeChild(parentDiv.firstChild);
-        }
+        deleteAllChildren(parentDiv);
         // sort the user names: the current user would come first
         const ownUser = this.quizState.user.name;
         let names = this.quizState.all_user_names.filter(item => {
@@ -97,5 +197,43 @@ class RoundPageManager {
             playerDiv.innerHTML = markup;
             parentDiv.appendChild(playerDiv);
         });
+    }
+
+    renderQuizQuestion() {
+        const questionContainer = document.getElementById('round-question');
+        if (!this.quizState.state.cur_question || this.quizState.state.status != 'STARTED') {
+            questionContainer.style.display = 'none';
+            return;
+        }
+        const numberContainer = document.getElementById('round-question-number');
+        numberContainer.innerText = `Question ${this.quizState.state.cur_question_index[0] + 1} ` +
+            `of ${this.quizState.state.cur_question_index[1]}`;
+        // render image
+        const imgContainer = document.getElementById('round-question-img-container');
+        if (this.quizState.state.cur_question.image) {
+            const img = document.querySelectorAll('#round-question-img-container img')[0];
+            const imgUri = `../quiz/${this.quizState.state.id}/img/${this.quizState.state.cur_question.image}`;
+            img.src = imgUri;
+            imgContainer.style.display = 'block';
+        } else {
+            imgContainer.style.display = 'none';
+        }
+        // render question text
+        const txtContainer = document.getElementById('round-question-text-container');
+        txtContainer.innerText = this.quizState.state.cur_question.text;
+        // render answers
+        const answerContainer = document.getElementById('round-question-questions-container');
+        deleteAllChildren(answerContainer);
+        const answers = this.quizState.state.cur_question.answers.map((e, i) => [e, i]);
+
+        if (this.quizState.state.cur_question.question_type == 'SINGLE_CHOICE') {
+            // add radiogroup
+            createRadioGroup(answers, (t) => t[0], (t) => t[1], answerContainer, 'topics-radio-group', 'answer');
+        } else {
+            // add multiple choice
+            createCheckboxes(answers, (t) => t[0], (t) => t[1], answerContainer, 'topics-radio-group');
+        }
+
+        questionContainer.style.display = 'block';
     }
 }
