@@ -1,3 +1,5 @@
+For getting help with Terraform check [this page](readme-terraform.md). 
+
 # 1 Groundwork
 
 Setup virtual environment for the specific Python version (3.10):
