@@ -22,3 +22,18 @@ provider "aws" {
   profile = "quizless"  # add this line
 }
 ```
+
+Now we're able, for instance, to spin up an ECS cluster:
+```yaml
+resource "aws_elasticache_cluster" "quiz_cluster" {
+  cluster_id           = "quiz-cluster"
+  engine               = "redis"
+  node_type            = "cache.t2.micro"
+  num_cache_nodes      = 1
+  parameter_group_name = "default.redis3.2"
+  engine_version       = "3.2.10"
+  port                 = 6379
+}
+```
+
+Don't forget to properly set up `.gitignore`.

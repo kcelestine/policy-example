@@ -206,7 +206,7 @@ class RoundPageManager {
         const imgContainer = document.getElementById('round-question-img-container');
         if (this.quizState.state.cur_question.image) {
             const img = document.querySelectorAll('#round-question-img-container img')[0];
-            const imgUri = `../quiz/${this.quizState.state.id}/img/${this.quizState.state.cur_question.image}`;
+            const imgUri = `img/${this.quizState.state.cur_question.image}`;
             img.src = imgUri;
             imgContainer.style.display = 'block';
         } else {
