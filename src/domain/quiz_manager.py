@@ -1,15 +1,15 @@
-import copy
 import datetime
-import math
 import random
 import uuid
 from typing import List, Tuple, Optional
 
+from domain.quiz_constants import QuizConstants
 from domain.quiz_data import QuizData
 from domain.quiz_requests import QuizStartRequest, QuizJoinRequest, QuizStatusRequest, ScheduleQuizRequest, \
     StoreAnswerRequest
 from domain.quiz_state import QuizState, QuizStatusCode, QuizUserRole, QuizPlayers, QuizPlayer, UserQuizState, \
-    QuizPlayerAnswer, QuizResults, QuizResultsPlayer
+    QuizPlayerAnswer, QuizResults
+from domain.quiz_state_update_manager import QuizStateUpdateManager
 from domain.quiz_topic import QuizTopic
 from domain.repository.quiz_metadata_repository import QuizMetadataRepository
 from domain.repository.quiz_state_repository import QuizStateRepository
@@ -17,25 +17,23 @@ from domain.time_utils import get_utc_now_time
 
 
 class QuizManager:
-    PENDING_QUIZ_EXPIRATION_SECONDS = 10 * 60
-    STARTED_QUIZ_EXPIRATION_SECONDS = 60 * 60
-
     def __init__(self):
-        self.quizes: List[QuizData] = QuizMetadataRepository().read_quizes()
+        self._quizes: List[QuizData] = QuizMetadataRepository().read_quizes()
         self._state_repo = QuizStateRepository()
+        self._state_update_manager = QuizStateUpdateManager(self._state_repo, self._quizes)
 
     def get_quiz_topics(self) -> List[QuizTopic]:
         return [
-            QuizTopic(id=q.id, name=q.name) for q in self.quizes
+            QuizTopic(id=q.id, name=q.name) for q in self._quizes
         ]
 
     def start_quiz(self, request_data: QuizStartRequest) -> UserQuizState:
         expires = get_utc_now_time() + datetime.timedelta(
-            seconds=self.PENDING_QUIZ_EXPIRATION_SECONDS)
-        quizes = [q for q in self.quizes if q.id == request_data.topic_id]
+            seconds=QuizConstants.PENDING_QUIZ_EXPIRATION_SECONDS)
+        quizes = [q for q in self._quizes if q.id == request_data.topic_id]
         if not quizes:
             raise Exception(f"Quiz #{request_data.topic_id} wasn't found out of "
-                            f"{self.quizes} quizes")
+                            f"{self._quizes} quizes")
         quiz = quizes[0]
         q_state = QuizState(
             id=quiz.id,
@@ -44,9 +42,9 @@ class QuizManager:
             status=QuizStatusCode.PENDING,
             expires=expires,
             question_seconds=request_data.question_seconds,
-            updates_in_seconds=self.PENDING_QUIZ_EXPIRATION_SECONDS
+            updates_in_seconds=QuizConstants.PENDING_QUIZ_EXPIRATION_SECONDS
         )
-        self._state_repo.set_state(q_state, self.PENDING_QUIZ_EXPIRATION_SECONDS)
+        self._state_repo.set_state(q_state, QuizConstants.PENDING_QUIZ_EXPIRATION_SECONDS)
         quiz_players = QuizPlayers(
             players=[
                 QuizPlayer(
@@ -58,7 +56,7 @@ class QuizManager:
             ]
         )
         self._state_repo.set_quiz_players(
-            q_state.quiz_code, quiz_players, self.STARTED_QUIZ_EXPIRATION_SECONDS)
+            q_state.quiz_code, quiz_players, QuizConstants.STARTED_QUIZ_EXPIRATION_SECONDS)
         user_quiz_state = UserQuizState(
             state=q_state,
             user=quiz_players.players[0],
@@ -69,7 +67,7 @@ class QuizManager:
     def join_quiz(self, request_data: QuizJoinRequest) -> UserQuizState:
         if not request_data.user_name:
             raise Exception("User name cannot be empty")
-        q_state, quiz_players = self._state_repo.read_quiz_state(
+        q_state, quiz_players = self._state_update_manager.read_and_update_quiz_state(
             request_data.quiz_code)
         if request_data.user_name in {u.name for u in quiz_players.players}:
             raise Exception(f"User name '{request_data.user_name}' is already occupied")
@@ -82,7 +80,7 @@ class QuizManager:
             )
         )
         self._state_repo.set_quiz_players(
-            q_state.quiz_code, quiz_players, self.PENDING_QUIZ_EXPIRATION_SECONDS)
+            q_state.quiz_code, quiz_players, QuizConstants.PENDING_QUIZ_EXPIRATION_SECONDS)
         user_quiz_state = UserQuizState(
             state=q_state,
             user=quiz_players.players[-1],
@@ -91,7 +89,7 @@ class QuizManager:
         return user_quiz_state
 
     def get_quiz_status(self, request_data: QuizStatusRequest) -> UserQuizState:
-        q_state, quiz_players = self._state_repo.read_quiz_state(
+        q_state, quiz_players = self._state_update_manager.read_and_update_quiz_state(
             request_data.quiz_code)
         current_users = [u for u in quiz_players.players if u.user_token == request_data.user_token]
         if not current_users:
@@ -101,13 +99,12 @@ class QuizManager:
             user=current_users[0],
             all_user_names=[p.name for p in quiz_players.players]
         )
-        self._check_and_update_running_quiz(q_state)
 
         return user_quiz_state
 
     def store_answer(self, request_data: StoreAnswerRequest) -> UserQuizState:
         answer_time = get_utc_now_time()
-        q_state, quiz_players = self._state_repo.read_quiz_state(
+        q_state, quiz_players = self._state_update_manager.read_and_update_quiz_state(
             request_data.quiz_code)
         if q_state.status != QuizStatusCode.STARTED:
             raise Exception(f"Quiz {request_data.quiz_code} is in {q_state.status} status")
@@ -115,9 +112,6 @@ class QuizManager:
         current_users = [u for u in quiz_players.players if u.user_token == request_data.user_token]
         if not current_users:
             raise Exception("User token not found among the quiz users")
-
-        # update the quiz's status
-        self._check_and_update_running_quiz(q_state)
 
         if q_state.status == QuizStatusCode.FINISHED:
             raise Exception("Quiz is already finished, no more answers are allowed")
@@ -127,7 +121,7 @@ class QuizManager:
                             f"but the answer was given on the question {request_data.question_index}")
 
         # initiate answers with empty values
-        quiz_data = [q for q in self.quizes if q.id == q_state.id][0]
+        quiz_data = [q for q in self._quizes if q.id == q_state.id][0]
         if not current_users[0].answers:
             current_users[0].answers = [QuizPlayerAnswer(
                 answer=[], answer_given_seconds=q_state.question_seconds)] * len(quiz_data.questions)
@@ -140,7 +134,8 @@ class QuizManager:
 
         # store the updated answers
         self._state_repo.set_quiz_players(
-            request_data.quiz_code, quiz_players, self.STARTED_QUIZ_EXPIRATION_SECONDS)
+            request_data.quiz_code, quiz_players,
+            QuizConstants.STARTED_QUIZ_EXPIRATION_SECONDS)
         # return the updated state
         user_quiz_state = UserQuizState(
             state=q_state,
@@ -163,7 +158,8 @@ class QuizManager:
             seconds=request_data.delay_seconds)
         q_state.updates_in_seconds = request_data.delay_seconds
 
-        self._state_repo.set_state(q_state, self.STARTED_QUIZ_EXPIRATION_SECONDS + request_data.delay_seconds)
+        self._state_repo.set_state(
+            q_state, QuizConstants.STARTED_QUIZ_EXPIRATION_SECONDS + request_data.delay_seconds)
         user_quiz_state = UserQuizState(
             state=q_state,
             user=current_users[0],
@@ -175,75 +171,8 @@ class QuizManager:
         results = self._state_repo.read_quiz_results(quiz_code)
         if not results:
             return None
-        quiz_data = [q for q in self.quizes if q.id == results.quiz_id][0]
+        quiz_data = [q for q in self._quizes if q.id == results.quiz_id][0]
         return results, quiz_data
-
-    def _check_and_update_running_quiz(self, q_state: QuizState) -> None:
-        # if the quiz is started - check and update the current question
-        # if we ran out of questions - stop the quiz
-        if q_state.status == QuizStatusCode.STARTED:
-            quiz_data = [q for q in self.quizes if q.id == q_state.id][0]
-            seconds_since_started = (get_utc_now_time() - q_state.starts_at).total_seconds()
-            question_index = math.floor(seconds_since_started / q_state.question_seconds)
-            # determine interval until next question
-            q_state.updates_in_seconds = q_state.question_seconds - \
-                                         math.floor(seconds_since_started % q_state.question_seconds)
-            if question_index >= len(quiz_data.questions):
-                self._finish_quiz(q_state)
-            else:
-                if q_state.cur_question_index[0] != question_index:
-                    q_state.cur_question_index = question_index, len(quiz_data.questions)
-                    q_state.cur_question = copy.deepcopy(quiz_data.questions[question_index])
-                    q_state.cur_question.correct_answers = []
-                    self._state_repo.set_state(q_state, self.STARTED_QUIZ_EXPIRATION_SECONDS)
-
-    def _finish_quiz(self, q_state: QuizState) -> None:
-        if q_state == QuizStatusCode.FINISHED:
-            return
-        q_state.status = QuizStatusCode.FINISHED
-
-        # rank the quiz's users based on their answers
-        q_state.updates_in_seconds = self.STARTED_QUIZ_EXPIRATION_SECONDS
-        self._state_repo.set_state(q_state, self.STARTED_QUIZ_EXPIRATION_SECONDS)
-        players = self._state_repo.read_quiz_players(q_state.quiz_code)
-        quiz_data = [q for q in self.quizes if q.id == q_state.id][0]
-
-        # total number of correct answers / total time spent answering
-        players_scores: List[Tuple[int, float]] = [(0, 0)] * len(players.players)
-        for i, question in enumerate(quiz_data.questions):
-            sorted_answers = sorted(question.correct_answers)
-
-            for player_index, player in enumerate(players.players):
-                if i >= len(player.answers):
-                    continue
-                score = players_scores[player_index]
-                player_answers = sorted(player.answers[i].answer)
-                if sorted_answers == player_answers:
-                    score = score[0] + 1, score[1]
-                score = score[0], score[1] + player.answers[i].answer_given_seconds
-                players_scores[player_index] = score
-
-        player_score_index = [(i, score) for i, score in enumerate(players_scores)]
-        player_score_index.sort(key=lambda item: (item[1][0], -item[1][1]), reverse=True)
-
-        # summarize results
-        results = QuizResults(
-            quiz_id=quiz_data.id,
-            quiz_name=quiz_data.name,
-            started_at=q_state.starts_at,
-            players=[]
-        )
-        for index, score in player_score_index:
-            player_score = QuizResultsPlayer(
-                name=players.players[index].name,
-                correct_answers=score[0],
-                total_answering_time=score[1],
-                answers=players.players[index].answers
-            )
-            results.players.append(player_score)
-        # save the score
-        self._state_repo.set_quiz_result(
-            q_state.quiz_code, results, self.STARTED_QUIZ_EXPIRATION_SECONDS)
 
 
 quiz_manager = QuizManager()
