@@ -4,6 +4,7 @@ class RoundPageManager {
         this.localState = new LocalStateManager();
         this.quizState = null;
         this.quizTimer = new QuizTimer();
+        this.answerBlock = new QuizAnswerBlock(this.localState);
     }
 
     initialize() {
@@ -43,11 +44,9 @@ class RoundPageManager {
     }
 
     postAnswer() {
-        let answer = getRadioGroupValue('input[name="answer"]');
-        if (answer === undefined)
-            answer = getSelectedCheckboxes(document.getElementById('round-question-questions-container'));
-        else
-            answer = [answer];
+        const answer = this.answerBlock.readAnswerFromInputs(this.quizState);
+        if (!answer)
+            return;
         this.server.postAnswer(this.quizState.state.quiz_code,
             this.quizState.user.user_token, this.quizState.state.cur_question_index[0],
             answer, (data) => {
@@ -94,7 +93,14 @@ class RoundPageManager {
 
         this.renderPlayers();
         this.renderQuizQuestion();
+        this.restoreLastAnswer();
         this.obtainAndRenderQuizResults();
+    }
+
+    restoreLastAnswer() {
+        if (this.quizState.state.status != 'STARTED')
+            return;
+        this.answerBlock.restoreLastAnswer(this.quizState);
     }
 
     obtainAndRenderQuizResults() {
@@ -107,19 +113,7 @@ class RoundPageManager {
 
     renderQuizResults(data) {
         const container = document.getElementById('quiz-results');
-        // container.innerText = JSON.stringify(data);
         container.style.display = 'block';
-        /*
-        {"quiz_results":{"quiz_id":"b729af45-5ed3-42d0-ac57-d4485b64b067","quiz_name":"Numbers-II",
-        "started_at":"2023-03-28T22:00:50.903869+02:00","players":[{"name":"Burt","correct_answers":2,"total_answering_time":14.752748,
-            "answers":[{"answer":[1],"answer_given":"2023-03-28T22:00:52.482516+02:00"},
-                       {"answer":[1,2],"answer_given":"2023-03-28T22:01:04.077970+02:00"}]}]},
-            "quiz_data":{"id":"b729af45-5ed3-42d0-ac57-d4485b64b067","name":"Numbers-II","questions":
-              [{"image":"quiz_rn_01.png","text":"(2) What Roman number is this?","answers":["20158","2608","11518"],"correct_answers":[1],
-                "question_type":"SINGLE_CHOICE"},
-              {"image":"","text":"(2) What Roman numeral corresponds to 2?","answers":["2","II","ii"],"correct_answers":[1,2],"question_type":"MULTI_CHOICE"}
-        ]}}
-        */
         document.getElementById('quiz-results-title').innerText = `Quiz #${this.quizState.state.quiz_code} ("` +
             `${data.quiz_results.quiz_name}) is finished`;
         this.renderPlayersResults(data);

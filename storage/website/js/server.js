@@ -13,8 +13,8 @@ class Server {
         if (error.detail)
             alert(error.detail);
         else {
-            alert('Generic error occurred, please check the log');
-            console.log(error);
+            console.log('Generic error occurred, please check the log');
+            console.error(error);
         }
     }
 
@@ -56,27 +56,6 @@ class Server {
                 method: 'POST',
                 body: JSON.stringify(
                     {"quiz_code": quizCode, "user_token": userToken, "delay_seconds": delaySeconds}
-                ),
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                }
-            })
-            .then(this.checkStatus)
-            .then(data => {
-                onCompleted(data);
-            })
-            .catch(error => {
-                this.processErrorInResponse(error);
-            });
-    }
-
-    checkQuizStatus(quizCode, userToken, onCompleted) {
-        const url = this.baseUrl + 'quiz-check-status'
-        fetch(url, {
-                method: 'POST',
-                body: JSON.stringify(
-                    {"quiz_code": quizCode, "user_token": userToken}
                 ),
                 headers: {
                     'Accept': 'application/json',
@@ -136,6 +115,27 @@ class Server {
     getQuizResults(quizCode, onCompleted) {
         const url = this.baseUrl + `quiz-results/${quizCode}`
         fetch(url)
+            .then(this.checkStatus)
+            .then(data => {
+                onCompleted(data);
+            })
+            .catch(error => {
+                this.processErrorInResponse(error);
+            });
+    }
+
+    checkQuizStatus(quizCode, userToken, onCompleted) {
+        const url = this.baseUrl + 'quiz-check-status'
+        fetch(url, {
+                method: 'POST',
+                body: JSON.stringify(
+                    {"quiz_code": quizCode, "user_token": userToken}
+                ),
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
             .then(this.checkStatus)
             .then(data => {
                 onCompleted(data);
