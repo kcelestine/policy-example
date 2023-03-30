@@ -31,7 +31,6 @@ resource "aws_s3_bucket_policy" "quiz_bucket_policy" {
 
 module "template_files" {
   source = "hashicorp/dir/template"
-
   base_dir = "${path.module}/../storage/website"
 }
 

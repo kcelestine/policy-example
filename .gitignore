@@ -4,6 +4,9 @@ __pycache__
 .python-version
 .pytest_cache
 .DS_Store
+lambda_src
+lambda_output/*
+!lambda_output/README.txt
 
 # Local .terraform directories
 **/.terraform/*

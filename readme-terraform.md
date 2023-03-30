@@ -37,3 +37,30 @@ resource "aws_elasticache_cluster" "quiz_cluster" {
 ```
 
 Don't forget to properly set up `.gitignore`.
+
+# Downgrade Python to 3.9
+```shell
+rm -rf venv
+pyenv which python3.9
+$(pyenv which python3.9) -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+Might require this line:
+```shell
+pip uninstall dataclasses
+```
+
+Update the Lambda (only) if necessary:
+```shell
+terraform apply -replace=aws_lambda_function.quizeless_lambda --auto-approve
+```
+
+Check the "quizless-lambda" with the payload:
+```json
+{
+  "requested_operation": "quiz-topics",
+  "payload": {}
+}
+```
