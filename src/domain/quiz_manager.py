@@ -11,14 +11,18 @@ from domain.quiz_state import QuizState, QuizStatusCode, QuizUserRole, QuizPlaye
     QuizPlayerAnswer, QuizResults
 from domain.quiz_state_update_manager import QuizStateUpdateManager
 from domain.quiz_topic import QuizTopic
-from domain.repository.quiz_metadata_repository import QuizMetadataRepository
+from domain.repository.quiz_metadata_fs_repository import QuizMetadataFsRepository
+from domain.repository.quiz_metadata_s3_repository import QuizMetadataS3Repository
 from domain.repository.quiz_state_repository import QuizStateRepository
 from domain.time_utils import get_utc_now_time
+from settings import settings
 
 
 class QuizManager:
     def __init__(self):
-        self._quizes: List[QuizData] = QuizMetadataRepository().read_quizes()
+        quiz_meta_repo = QuizMetadataS3Repository() if settings.storage_type == "S3" \
+            else QuizMetadataFsRepository()
+        self._quizes: List[QuizData] = quiz_meta_repo.read_quizes()
         self._state_repo = QuizStateRepository()
         self._state_update_manager = QuizStateUpdateManager(self._state_repo, self._quizes)
 

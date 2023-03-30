@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     redis_host: str = Field("localhost")
     redis_port: int = Field(6379)
     storage_uri: str = Field(STORAGE_PATH)
+    storage_type: str = Field("fs")
 
     @property
     def quiz_path(self) -> str:

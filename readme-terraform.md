@@ -38,6 +38,9 @@ resource "aws_elasticache_cluster" "quiz_cluster" {
 
 Don't forget to properly set up `.gitignore`.
 
+Check the deployed website here:
+http://quizless-bucket.s3-website.eu-central-1.amazonaws.com/
+
 # Downgrade Python to 3.9
 ```shell
 rm -rf venv
@@ -63,4 +66,13 @@ Check the "quizless-lambda" with the payload:
   "requested_operation": "quiz-topics",
   "payload": {}
 }
+```
+
+Provide this .env file for local testing:
+```shell
+AWS_ACCESS_KEY_ID=A....A
+AWS_SECRET_ACCESS_KEY=B........6
+AWS_DEFAULT_REGION=eu-central-1
+STORAGE_URI=quizless-bucket-data
+STORAGE_TYPE=S3
 ```
