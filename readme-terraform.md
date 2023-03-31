@@ -68,6 +68,14 @@ Check the "quizless-lambda" with the payload:
 }
 ```
 
+or this payload to check both S3 and ElastiCache accessibility:
+```json
+{
+  "requested_operation": "quiz-start",
+  "payload": {"topic_id": "d729af45-5ed3-42d0-ac57-d4485b64b067", "user_name": "Alph"}
+}
+```
+
 Provide this .env file for local testing:
 ```shell
 AWS_ACCESS_KEY_ID=A....A

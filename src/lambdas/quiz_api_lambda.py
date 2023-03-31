@@ -1,48 +1,49 @@
-from typing import Dict, Any, List
-
-# from aws_lambda_powertools.utilities.typing import LambdaContext
+import json
+from typing import Dict, Any
 
 from domain.quiz_manager import quiz_manager
 from domain.quiz_requests import QuizStartRequest, QuizJoinRequest, QuizStatusRequest, ScheduleQuizRequest, \
     StoreAnswerRequest
+from domain.quiz_state import QuizResultsAndData
 
 
-def get_topics(_request_data: Any) -> List[Dict[str, Any]]:
-    return [q.to_dict() for q in quiz_manager.get_quiz_topics()]
+def get_topics(_request_data: Any) -> str:
+    return json.dumps([q.to_dict() for q in quiz_manager.get_quiz_topics()])
 
 
-def start_quiz(request_data: Dict[str, Any]) -> Dict[str, Any]:
+def start_quiz(request_data: Dict[str, Any]) -> str:
     return quiz_manager.start_quiz(
         QuizStartRequest.from_dict(request_data)
-    ).to_dict()
+    ).to_json()
 
 
-def join_quiz(request_data: Dict[str, Any]) -> Dict[str, Any]:
+def join_quiz(request_data: Dict[str, Any]) -> str:
     return quiz_manager.join_quiz(
-        QuizJoinRequest.from_dict(request_data)).to_dict()
+        QuizJoinRequest.from_dict(request_data)).to_json()
 
 
-def check_status(request_data: Dict[str, Any]) -> Dict[str, Any]:
+def check_status(request_data: Dict[str, Any]) -> str:
     return quiz_manager.get_quiz_status(
-        QuizStatusRequest.from_dict(request_data)).to_dict()
+        QuizStatusRequest.from_dict(request_data)).to_json()
 
 
-def schedule_quiz(request_data: Dict[str, Any]) -> Dict[str, Any]:
+def schedule_quiz(request_data: Dict[str, Any]) -> str:
     return quiz_manager.schedule_quiz(
         ScheduleQuizRequest.from_dict(request_data)
-    ).to_dict()
+    ).to_json()
 
 
-def answer_quiz(request_data: Dict[str, Any]) -> Dict[str, Any]:
+def answer_quiz(request_data: Dict[str, Any]) -> str:
     return quiz_manager.store_answer(
-        StoreAnswerRequest.from_dict(request_data)).to_dict()
+        StoreAnswerRequest.from_dict(request_data)).to_json()
 
 
-def get_quiz_results(quiz_code: int) -> Dict[str, Any]:
+def get_quiz_results(quiz_code: int) -> str:
     results = quiz_manager.get_quiz_results(quiz_code)
     if results:
-        results = {"quiz_results": results[0], "quiz_data": results[1]}
-    return results
+        results = QuizResultsAndData(quiz_results=results[0], quiz_data=results[1])
+        return results.to_json()
+    return ""
 
 
 function_by_request = {
@@ -68,12 +69,15 @@ def lambda_handler(event: Dict[str, Any], ctx = None) -> Dict[str, Any]:
                         "is incorrect, expected one of the following values: "
                         ", ".join(function_by_request.keys()))
     response_data = processor(event.get("payload"))
-    return response_data
+    return {
+        'statusCode': 200,
+        'body': json.dumps(response_data)
+    }
 
 
 if __name__ == "__main__":
     result = lambda_handler({
-        "requested_operation": "quiz-topics",
-        "payload": {}
+        "requested_operation": "quiz-start",
+        "payload": {"topic_id": "d729af45-5ed3-42d0-ac57-d4485b64b067", "user_name": "Alph"}
     })
     print(result)

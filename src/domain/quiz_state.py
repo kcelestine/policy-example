@@ -5,7 +5,7 @@ from typing import List, Optional, Tuple
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
 
-from domain.quiz_data import QuizQuestion
+from domain.quiz_data import QuizQuestion, QuizData
 from domain.quiz_topic import QuizTopic
 
 
@@ -81,3 +81,10 @@ class QuizResults:
     quiz_name: str
     started_at: datetime
     players: List[QuizResultsPlayer]
+
+
+@dataclass_json
+@dataclass
+class QuizResultsAndData:
+    quiz_results: QuizResults
+    quiz_data: QuizData

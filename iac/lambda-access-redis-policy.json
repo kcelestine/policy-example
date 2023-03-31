@@ -1,0 +1,18 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "elasticache:Describe*",
+        "elasticache:List*",
+        "elasticache:Create*",
+        "elasticache:Delete*",
+        "elasticache:Modify*"
+      ],
+      "Resource": [
+        "arn:aws:elasticache:::${redis_id}"
+      ]
+    }
+  ]
+}
