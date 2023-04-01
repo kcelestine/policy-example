@@ -72,7 +72,7 @@ def lambda_handler(event: Dict[str, Any], ctx = None) -> Dict[str, Any]:
                         ", ".join(function_by_request.keys()))
     response_data = processor(event_data.get("payload"))
     return {
-        'statusCode': 200,
+        "statusCode": 200,
         'body': json.dumps(response_data)
     }
 
