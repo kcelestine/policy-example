@@ -24,7 +24,7 @@ resource "aws_s3_bucket_policy" "quiz_bucket_policy" {
 }
 
 locals {
-  server_js_file_path = "${path.module}/../storage/website/js/server.js"
+  server_js_file_path = "${path.module}/../website_src/js/server.js"
   new_quiz_api_uri    = replace(
     "${aws_api_gateway_deployment.quizless_api_deployment.invoke_url}/quiz",
     "/",
@@ -45,7 +45,7 @@ resource "null_resource" "modify_server_js_file" {
 
 module "template_files_website" {
   source = "hashicorp/dir/template"
-  base_dir = "${path.module}/../storage/website"
+  base_dir = "${path.module}/../website_src"
   depends_on   = [null_resource.modify_server_js_file]
 }
 
@@ -57,19 +57,6 @@ resource "aws_s3_object" "quiz_bucket_site_files" {
   source       = each.value.source_path
   content      = each.value.content
   etag         = each.value.digests.md5
-}
-
-# modify the file "server.js" back to it's original state
-resource "null_resource" "modify_server_js_file_back" {
-  triggers = {
-    always_run = "${timestamp()}"
-  }
-  provisioner "local-exec" {
-    command = <<EOT
-      sed -i 's/^this\.baseUrl =.*;/this.baseUrl = "TEMPLATE_BASE_URL";/' ${local.server_js_file_path}
-    EOT
-  }
-  depends_on = [aws_s3_object.quiz_bucket_site_files]
 }
 
 module "template_files_data" {
