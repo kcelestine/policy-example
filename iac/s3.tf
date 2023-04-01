@@ -2,11 +2,6 @@ resource "aws_s3_bucket" "quiz_bucket" {
   bucket = var.bucket_name_site
 }
 
-# I need the website URL as an endpoint I can use in browser
-output "website_url" {
-  value = "http://${aws_s3_bucket.quiz_bucket.website_endpoint}"
-}
-
 resource "aws_s3_bucket" "quiz_bucket_data" {
   bucket = var.bucket_name_data
 }
@@ -16,6 +11,11 @@ resource "aws_s3_bucket_website_configuration" "quiz_bucket_config" {
   index_document {
     suffix = "index.html"
   }
+}
+
+# I need the website URL as an endpoint I can use in browser
+output "website_url" {
+  value = "http://${aws_s3_bucket_website_configuration.quiz_bucket_config.website_endpoint}"
 }
 
 resource "aws_s3_bucket_policy" "quiz_bucket_policy" {
@@ -35,7 +35,7 @@ locals {
 # modify the file "server.js" to substitute the file's content (URI)
 resource "null_resource" "modify_server_js_file" {
   triggers = {
-    file_contents = file(local.server_js_file_path)
+    file_contents = md5(file(local.server_js_file_path))
   }
   provisioner "local-exec" {
     command = "sed -i 's/TEMPLATE_BASE_URL/${local.new_quiz_api_uri}/g' ${local.server_js_file_path}"
@@ -57,6 +57,19 @@ resource "aws_s3_object" "quiz_bucket_site_files" {
   source       = each.value.source_path
   content      = each.value.content
   etag         = each.value.digests.md5
+}
+
+# modify the file "server.js" back to it's original state
+resource "null_resource" "modify_server_js_file_back" {
+  triggers = {
+    always_run = "${timestamp()}"
+  }
+  provisioner "local-exec" {
+    command = <<EOT
+      sed -i 's/^this\.baseUrl =.*;/this.baseUrl = "TEMPLATE_BASE_URL";/' ${local.server_js_file_path}
+    EOT
+  }
+  depends_on = [aws_s3_object.quiz_bucket_site_files]
 }
 
 module "template_files_data" {

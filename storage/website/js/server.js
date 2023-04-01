@@ -35,7 +35,7 @@ class Server {
         if (error.detail)
             alert(error.detail);
         else {
-            console.log('Generic error occurred, please check the log');
+            console.log("Generic error occurred, please check the log");
             console.error(error);
         }
     }
