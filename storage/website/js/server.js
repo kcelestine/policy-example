@@ -1,6 +1,6 @@
 class Server {
     constructor() {
-        this.baseUrl = "https://vvl7g8h4da.execute-api.eu-central-1.amazonaws.com/prod/quiz";
+        this.baseUrl = "TEMPLATE_BASE_URL";
     }
 
     queryServer(operation, payload, onCompleted) {
