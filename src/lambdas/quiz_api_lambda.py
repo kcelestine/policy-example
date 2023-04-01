@@ -59,16 +59,18 @@ function_by_request = {
 
 # : LambdaContext = None
 def lambda_handler(event: Dict[str, Any], ctx = None) -> Dict[str, Any]:
-    if "requested_operation" not in event:
-        raise Exception("The payload should contain 'requested_operation' field that "
-                        "could take one of the following values: "
-                        ", ".join(function_by_request.keys()))
-    processor = function_by_request.get(event["requested_operation"])
+    event_data = json.loads(event["body"])
+    if "requested_operation" not in event_data:
+        raise Exception("Thepayload should contain 'requested_operation' field that "
+                        "could take one of the following values: " +
+                        ", ".join(function_by_request.keys()) +
+                        f". The payload was: '{event_data}'")
+    processor = function_by_request.get(event_data["requested_operation"])
     if not processor:
-        raise Exception(f"The 'requested_operation' field value ({event['requested_operation']})"
-                        "is incorrect, expected one of the following values: "
+        raise Exception(f"The 'requested_operation' field value ({event_data['requested_operation']})"
+                        "is incorrect, expected one of the following values: " +
                         ", ".join(function_by_request.keys()))
-    response_data = processor(event.get("payload"))
+    response_data = processor(event_data.get("payload"))
     return {
         'statusCode': 200,
         'body': json.dumps(response_data)
@@ -77,7 +79,9 @@ def lambda_handler(event: Dict[str, Any], ctx = None) -> Dict[str, Any]:
 
 if __name__ == "__main__":
     result = lambda_handler({
-        "requested_operation": "quiz-start",
-        "payload": {"topic_id": "d729af45-5ed3-42d0-ac57-d4485b64b067", "user_name": "Alph"}
+        "body": json.dumps({
+            "requested_operation": "quiz-start",
+            "payload": {"topic_id": "d729af45-5ed3-42d0-ac57-d4485b64b067", "user_name": "Alph"}
+        })
     })
     print(result)

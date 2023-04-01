@@ -84,3 +84,10 @@ AWS_DEFAULT_REGION=eu-central-1
 STORAGE_URI=quizless-bucket-data
 STORAGE_TYPE=S3
 ```
+
+Now test the deployed API:
+```shell
+curl -iX "POST" "https://dvt15laxzl.execute-api.eu-central-1.amazonaws.com/prod/quiz" \
+  -H "Content-Type: application/json" \
+  -d '{"requested_operation": "quiz-start", "payload":{"topic_id": "d729af45-5ed3-42d0-ac57-d4485b64b067", "user_name": "Alph"}}'
+```

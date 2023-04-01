@@ -1,5 +1,6 @@
 resource "aws_lambda_function" "quizeless_lambda" {
   filename      = "../lambda_output/lambda.zip"
+  source_code_hash = "../lambda_output/lambda.zip"
   function_name = "quizeless_lambda"
   role          = aws_iam_role.lambda_role.arn
   handler       = "lambdas/quiz_api_lambda.lambda_handler"
