@@ -1,16 +1,16 @@
 {
-  "name": "Numbers-II",
+  "name": "Test quiz, 2 questions only",
   "questions": [
     {
       "image": "quiz_rn_01.png",
-      "text": "(2) What Roman number is this?",
+      "text": "[Test] What Roman number is this?",
       "answers": ["20158", "2608", "11518"],
       "correct_answers": [1],
       "question_type": "SINGLE_CHOICE"
     },
     {
       "image": "",
-      "text": "(2) What Roman numeral corresponds to 2?",
+      "text": "[Test] What Roman numeral corresponds to 2?",
       "answers": ["2", "II", "ii"],
       "correct_answers": [1, 2],
       "question_type": "MULTI_CHOICE"

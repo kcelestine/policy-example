@@ -35,7 +35,8 @@ locals {
 # modify the file "server.js" to substitute the file's content (URI)
 resource "null_resource" "modify_server_js_file" {
   triggers = {
-    file_contents = md5(file(local.server_js_file_path))
+    # file_contents = md5(file(local.server_js_file_path))
+    always_run = "${timestamp()}"
   }
   provisioner "local-exec" {
     command = "sed -i 's/TEMPLATE_BASE_URL/${local.new_quiz_api_uri}/g' ${local.server_js_file_path}"

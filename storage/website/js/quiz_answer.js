@@ -10,7 +10,7 @@ class QuizAnswerBlock {
         if (answer === undefined)
             answer = getSelectedCheckboxes(this.checkboxContainer);
         else
-            answer = [answer];
+            answer = [parseInt(answer)];
         if (!answer)
             return null;
         // store answer in cache
